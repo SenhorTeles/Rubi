@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rubi ZyNapse - IA de Voz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #050508;
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .bg-effects {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 50% 50%, rgba(50, 50, 50, 0.3) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(50, 50, 50, 0.1) 0%, transparent 30%),
+                radial-gradient(ellipse at 20% 80%, rgba(50, 50, 50, 0.1) 0%, transparent 30%);
+            pointer-events: none;
+            transition: all 0.8s;
+        }
+        .bg-effects.listening {
+            background: 
+                radial-gradient(ellipse at 50% 50%, rgba(0, 255, 100, 0.2) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 255, 100, 0.1) 0%, transparent 40%),
+                radial-gradient(ellipse at 20% 80%, rgba(0, 255, 100, 0.1) 0%, transparent 40%);
+        }
+        .bg-effects.speaking {
+            background: 
+                radial-gradient(ellipse at 50% 50%, rgba(255, 20, 60, 0.25) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(255, 20, 60, 0.15) 0%, transparent 40%),
+                radial-gradient(ellipse at 20% 80%, rgba(255, 20, 60, 0.15) 0%, transparent 40%);
+        }
+        .grid-lines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(100, 100, 100, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(100, 100, 100, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            transition: all 0.5s;
+        }
+        .listening .grid-lines {
+            background-image: 
+                linear-gradient(rgba(0, 255, 100, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 100, 0.03) 1px, transparent 1px);
+        }
+        .speaking .grid-lines {
+            background-image: 
+                linear-gradient(rgba(255, 20, 60, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 20, 60, 0.04) 1px, transparent 1px);
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            padding: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        .logo {
+            font-size: 2.5em;
+            font-weight: 900;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #888, #666, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px rgba(128, 128, 128, 0.3);
+            transition: all 0.5s;
+        }
+        .listening .logo {
+            background: linear-gradient(135deg, #00ff64, #00cc50, #00ff64);
+            -webkit-background-clip: text;
+            text-shadow: 0 0 40px rgba(0, 255, 100, 0.8);
+        }
+        .speaking .logo {
+            background: linear-gradient(135deg, #ff1444, #ff4d6d, #ff1444);
+            -webkit-background-clip: text;
+            text-shadow: 0 0 60px rgba(255, 20, 68, 0.9);
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 0.75em;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-top: 8px;
+            opacity: 0.8;
+            transition: color 0.5s;
+        }
+        .listening .subtitle { color: #00ff64; }
+        .speaking .subtitle { color: #ff1444; }
+        .core-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-bottom: 150px;
+        }
+        .nexus-core {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+        
+        /* Partículas orbitais */
+        .particles-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .particle-orbit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 2px;
+            background: #666;
+            border-radius: 50%;
+            box-shadow: 0 0 3px #666;
+            transition: all 0.5s;
+        }
+        .listening .particle-orbit {
+            background: #00ff64;
+            box-shadow: 0 0 6px #00ff64;
+        }
+        .speaking .particle-orbit {
+            background: #ff1444;
+            box-shadow: 0 0 6px #ff1444;
+        }
+        .speaking .particle-orbit {
+            animation: orbit-burst 3s linear infinite;
+        }
+        @keyframes orbit-burst {
+            0% { transform: rotate(0deg) translateX(140px); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.4; }
+            100% { transform: rotate(360deg) translateX(140px); opacity: 0; }
+        }
+        
+        /* Raios de energia */
+        .energy-ray {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100px;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(100, 100, 100, 0.3), transparent);
+            transform-origin: left center;
+            opacity: 0;
+            transition: background 0.5s;
+        }
+        .listening .energy-ray {
+            background: linear-gradient(90deg, rgba(0, 255, 100, 0.6), transparent);
+        }
+        .speaking .energy-ray {
+            background: linear-gradient(90deg, rgba(255, 20, 68, 0.4), transparent);
+            animation: ray-flash 1s ease-out infinite;
+        }
+        @keyframes ray-flash {
+            0% { opacity: 0; width: 80px; }
+            50% { opacity: 0.6; width: 180px; }
+            100% { opacity: 0; width: 80px; }
+        }
+        
+        .hex-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            border: 1px solid rgba(100, 100, 100, 0.08);
+            transition: all 1s;
+        }
+        
+        .hex-ring-1 { transform: scale(1); opacity: 0.06; }
+        .hex-ring-2 { transform: scale(0.8); opacity: 0.1; }
+        .hex-ring-3 { transform: scale(0.6); opacity: 0.12; }
+        
+        .listening .hex-ring { 
+            border-color: rgba(0, 255, 100, 0.4);
+            animation: hex-glow 3s ease-in-out infinite;
+        }
+        .listening .hex-ring-1 { opacity: 0.25; }
+        .listening .hex-ring-2 { opacity: 0.35; }
+        .listening .hex-ring-3 { opacity: 0.45; }
+        
+        .speaking .hex-ring { 
+            border-color: rgba(255, 20, 68, 0.5);
+            animation: hex-glow 2s ease-in-out infinite;
+        }
+        .speaking .hex-ring-1 { opacity: 0.3; }
+        .speaking .hex-ring-2 { opacity: 0.45; }
+        .speaking .hex-ring-3 { opacity: 0.6; }
+        
+        @keyframes hex-glow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* Ruby core suave */
+        .ruby-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            transition: all 1s;
+        }
+        .speaking .ruby-core {
+            animation: voice-pulse 2s ease-in-out infinite;
+        }
+        @keyframes voice-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+        
+        .ruby-svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 8px rgba(100, 100, 100, 0.3));
+            transition: all 1s;
+        }
+        .ruby-svg polygon:first-child {
+            transition: fill 0.5s;
+        }
+        .ruby-svg stroke {
+            transition: stroke 0.5s;
+        }
+        .listening .ruby-svg {
+            filter: drop-shadow(0 0 25px rgba(0, 255, 100, 0.7));
+        }
+        .listening .ruby-svg polygon:first-child {
+            fill: url(#rubyGradListening) !important;
+        }
+        .speaking .ruby-svg {
+            filter: drop-shadow(0 0 40px rgba(255, 20, 68, 0.9));
+        }
+        .speaking .ruby-svg polygon:first-child {
+            fill: url(#rubyGradSpeaking) !important;
+        }
+        
+        /* Aura vocal */
+        .vocal-aura {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.5s;
+        }
+        .speaking .vocal-aura {
+            opacity: 1;
+        }
+        .vocal-aura::before,
+        .vocal-aura::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 20, 68, 0.3);
+            animation: vocal-wave 3s ease-out infinite;
+        }
+        .vocal-aura::after {
+            animation-delay: 1.5s;
+        }
+        @keyframes vocal-wave {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        
+        /* Brilho core */
+        .core-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px;
+            height: 130px;
+            background: radial-gradient(circle, rgba(100, 100, 100, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            opacity: 0;
+            transition: all 0.5s;
+        }
+        .listening .core-glow {
+            background: radial-gradient(circle, rgba(0, 255, 100, 0.3) 0%, transparent 70%);
+        }
+        .speaking .core-glow {
+            background: radial-gradient(circle, rgba(255, 20, 68, 0.25) 0%, transparent 70%);
+            opacity: 1;
+            animation: glow-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes glow-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.4; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+        
+        /* Scan ring */
+        .scan-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            height: 220px;
+            border: 1px solid rgba(100, 100, 100, 0.05);
+            border-radius: 50%;
+            animation: scan-pulse 6s ease-out infinite;
+            transition: border-color 0.5s;
+        }
+        
+        .listening .scan-ring {
+            border-color: rgba(0, 255, 100, 0.2);
+            animation: scan-pulse 2s ease-out infinite;
+        }
+        
+        .speaking .scan-ring {
+            border-color: rgba(255, 20, 68, 0.3);
+            animation: scan-pulse 3s ease-out infinite;
+        }
+        
+        @keyframes scan-pulse {
+            0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0; }
+        }
+        
+        /* Data streams */
+        .data-streams {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        .data-stream {
+            position: absolute;
+            font-family: 'Courier New', monospace;
+            font-size: 8px;
+            color: rgba(100, 100, 100, 0.2);
+            animation: stream-flow 6s linear infinite;
+            white-space: nowrap;
+            transition: color 0.5s;
+        }
+        .data-stream:nth-child(1) { left: 5%; top: 15%; }
+        .data-stream:nth-child(2) { right: 5%; top: 25%; animation-delay: 2s; }
+        
+        .listening .data-stream {
+            color: rgba(0, 255, 100, 0.4);
+        }
+        
+        .speaking .data-stream {
+            color: #ff4d6d;
+        }
+        
+        @keyframes stream-flow {
+            0% { opacity: 0.2; }
+            50% { opacity: 0.6; }
+            100% { opacity: 0.2; }
+        }
+        
+        .input-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 30px;
+            background: linear-gradient(to top, #050508 0%, rgba(5, 5, 8, 0.9) 50%, transparent 100%);
+            z-index: 10;
+        }
+        .input-container {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        .input-line {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #666, #888);
+            transition: width 0.3s ease;
+        }
+        .chat-input {
+            width: 100%;
+            padding: 18px 25px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(100, 100, 100, 0.3);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1em;
+            outline: none;
+            transition: all 0.5s;
+        }
+        .chat-input:focus {
+            border-color: #666;
+            box-shadow: 0 0 20px rgba(100, 100, 100, 0.2);
+        }
+        .chat-input:focus + .input-line {
+            width: 100%;
+            background: linear-gradient(90deg, #666, #888);
+        }
+        .chat-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .chat-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .listening .chat-input {
+            border-color: rgba(0, 255, 100, 0.5);
+            box-shadow: 0 0 20px rgba(0, 255, 100, 0.2);
+        }
+        .speaking .chat-input {
+            border-color: rgba(255, 20, 68, 0.5);
+            box-shadow: 0 0 20px rgba(255, 20, 68, 0.2);
+        }
+        .send-btn {
+            padding: 18px 35px;
+            background: linear-gradient(135deg, #555, #444);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.5s;
+            position: relative;
+            overflow: hidden;
+        }
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .send-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .send-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(100, 100, 100, 0.3);
+        }
+        .listening .send-btn {
+            background: linear-gradient(135deg, #00cc50, #00aa40);
+        }
+        .speaking .send-btn {
+            background: linear-gradient(135deg, #ff1444, #cc1133);
+        }
+        .corner-accent {
+            position: fixed;
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(100, 100, 100, 0.15);
+            pointer-events: none;
+            transition: border-color 0.5s;
+        }
+        .corner-tl { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+        .corner-tr { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+        .corner-br { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+        .listening .corner-accent { border-color: rgba(0, 255, 100, 0.4); }
+        .speaking .corner-accent { border-color: rgba(255, 20, 68, 0.4); }
+        
+        .voice-btn {
+            position: fixed;
+            bottom: 120px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #555, #444);
+            border: none;
+            cursor: default;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(100, 100, 100, 0.3);
+            transition: all 0.5s;
+            z-index: 20;
+            opacity: 0.7;
+        }
+        .listening .voice-btn {
+            background: linear-gradient(135deg, #00cc50, #00aa40);
+            box-shadow: 0 0 30px rgba(0, 255, 100, 0.7);
+            opacity: 1;
+            cursor: pointer;
+        }
+        .speaking .voice-btn {
+            background: linear-gradient(135deg, #ff1444, #cc1133);
+            box-shadow: 0 0 30px rgba(255, 20, 68, 0.7);
+            opacity: 1;
+        }
+        .voice-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        .listening .voice-btn {
+            animation: pulse-mic 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-mic {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .stop-btn {
+            position: fixed;
+            bottom: 120px;
+            right: 100px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 20, 68, 0.2);
+            border: 2px solid #ff1444;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 20;
+        }
+        .stop-btn.visible {
+            display: flex;
+        }
+        .stop-btn:hover {
+            background: rgba(255, 20, 68, 0.4);
+        }
+        .stop-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #ff1444;
+        }
+        
+        .mode-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75em;
+            letter-spacing: 2px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            background: rgba(0, 255, 100, 0.1);
+            color: #00ff64;
+            border: 1px solid rgba(0, 255, 100, 0.3);
+            transition: all 0.5s;
+        }
+        .mode-indicator.listening {
+            background: rgba(0, 150, 255, 0.1);
+            color: #00aaff;
+            border-color: rgba(0, 150, 255, 0.3);
+        }
+        .mode-indicator.speaking {
+            background: rgba(255, 20, 68, 0.1);
+            color: #ff1444;
+            border-color: rgba(255, 20, 68, 0.3);
+        }
+        
+        #verification-overlay {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            width: 280px;
+            background: rgba(5, 5, 8, 0.95);
+            border: 1px solid rgba(255, 20, 68, 0.5);
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        #verification-overlay.fade-out {
+            animation: fadeOut 0.5s ease forwards;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .verification-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 20, 68, 0.3);
+        }
+        .verification-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        .verification-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: #ff1444;
+            animation: blink 0.5s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .verification-title {
+            font-size: 0.9em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #ff1444;
+            text-transform: uppercase;
+        }
+        .verification-image {
+            width: 240px;
+            height: 180px;
+            margin: 0 auto 15px;
+            border: 2px solid rgba(255, 20, 68, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+        .verification-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ff1444, transparent);
+            animation: scan-line 2s linear infinite;
+        }
+        @keyframes scan-line {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        .verification-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .verification-params {
+            font-family: 'Courier New', monospace;
+            font-size: 0.7em;
+            color: rgba(255, 20, 68, 0.6);
+            margin-bottom: 15px;
+        }
+        .verification-params div {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+        .verification-params span.value {
+            color: #ff1444;
+        }
+        .verification-status {
+            font-size: 0.85em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .verification-status.approved {
+            background: rgba(0, 255, 100, 0.1);
+            color: #00ff64;
+            border: 1px solid rgba(0, 255, 100, 0.5);
+        }
+        .verification-status.denied {
+            background: rgba(255, 20, 68, 0.1);
+            color: #ff1444;
+            border: 1px solid rgba(255, 20, 68, 0.5);
+        }
+        .verification-status.analyzing {
+            background: rgba(255, 20, 68, 0.1);
+            color: #ff1444;
+            border: 1px solid rgba(255, 20, 68, 0.3);
+        }
+        
+        #access-denied-msg {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(5, 5, 8, 0.95);
+            border: 1px solid rgba(255, 20, 68, 0.5);
+            border-radius: 8px;
+            padding: 20px 40px;
+            text-align: center;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .denied-icon {
+            font-size: 2em;
+            color: #ff1444;
+            margin-bottom: 10px;
+        }
+        .denied-text {
+            font-size: 1em;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #ff1444;
+            margin-bottom: 5px;
+        }
+        .denied-sub {
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-effects"></div>
+    <div class="grid-lines"></div>
+    <div class="corner-accent corner-tl"></div>
+    <div class="corner-accent corner-tr"></div>
+    <div class="corner-accent corner-bl"></div>
+    <div class="corner-accent corner-br"></div>
+    
+    <div class="container">
+        <header>
+            <h1 class="logo">Rubi ZyNapse</h1>
+            <p class="subtitle">Inteligência Artificial</p>
+        </header>
+
+        <div class="core-area">
+            <div class="nexus-core" id="nexusCore">
+                <div class="particles-container">
+                    <div class="particle-orbit"></div>
+                    <div class="particle-orbit"></div>
+                    <div class="particle-orbit"></div>
+                    <div class="particle-orbit"></div>
+                    <div class="particle-orbit"></div>
+                </div>
+                
+                <div class="energy-ray" style="transform: rotate(0deg);"></div>
+                <div class="energy-ray" style="transform: rotate(72deg);"></div>
+                <div class="energy-ray" style="transform: rotate(144deg);"></div>
+                <div class="energy-ray" style="transform: rotate(216deg);"></div>
+                <div class="energy-ray" style="transform: rotate(288deg);"></div>
+                
+                <div class="hex-ring hex-ring-1"></div>
+                <div class="hex-ring hex-ring-2"></div>
+                <div class="hex-ring hex-ring-3"></div>
+                
+                <div class="scan-ring"></div>
+                
+                <div class="core-glow"></div>
+                <div class="vocal-aura"></div>
+                
+                <div class="ruby-core">
+                    <svg class="ruby-svg" viewBox="0 0 100 100">
+                        <defs>
+                            <linearGradient id="rubyGradMain" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#888"/>
+                                <stop offset="50%" style="stop-color:#666"/>
+                                <stop offset="100%" style="stop-color:#888"/>
+                            </linearGradient>
+                            <linearGradient id="rubyGradListening" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00ff64"/>
+                                <stop offset="50%" style="stop-color:#00cc50"/>
+                                <stop offset="100%" style="stop-color:#00ff64"/>
+                            </linearGradient>
+                            <linearGradient id="rubyGradSpeaking" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ff1444"/>
+                                <stop offset="50%" style="stop-color:#ff3355"/>
+                                <stop offset="100%" style="stop-color:#ff1444"/>
+                            </linearGradient>
+                        </defs>
+                        <polygon points="50,3 97,28 97,72 50,97 3,72 3,28" fill="url(#rubyGradMain)" stroke="#666" stroke-width="1"/>
+                        <polygon points="50,12 88,32 88,68 50,88 12,68 12,32" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                        <line x1="50" y1="12" x2="50" y2="50" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="50" y1="50" x2="88" y2="32" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="88" y1="32" x2="88" y2="68" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="88" y1="68" x2="50" y2="88" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="50" y1="88" x2="12" y2="68" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="12" y1="68" x2="12" y2="32" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="12" y1="32" x2="50" y2="12" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <polygon points="50,25 75,37 75,63 50,75 25,63 25,37" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+                        <circle cx="50" cy="50" r="8" fill="rgba(255,255,255,0.1)"/>
+                        <circle cx="50" cy="50" r="3" fill="#ff4d6d"/>
+                    </svg>
+                </div>
+                
+                <div class="data-streams">
+                    <div class="data-stream">0xFF14 // ZYNAPSE</div>
+                    <div class="data-stream">RUBI v3.0 // ONLINE</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="Fale com Rubi..." onkeypress="handleKeyPress(event)">
+                    <div class="input-line"></div>
+                </div>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+        </svg>
+    </button>
+
+    <button class="stop-btn" id="stopBtn" onclick="stopAudio()">
+        <svg viewBox="0 0 24 24">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg>
+    </button>
+
+    <div class="mode-indicator" id="modeIndicator">AGUARDANDO</div>
+
+    <script>
+        let isListening = false;
+        let recognition = null;
+        let isFirstMessage = true;
+        let eventSource = null;
+        let accessDenied = false;
+        let currentMode = 'idle';
+        
+        const bgEffects = document.querySelector('.bg-effects');
+        const nexusCore = document.getElementById('nexusCore');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const modeIndicator = document.getElementById('modeIndicator');
+        let isSpeaking = false;
+
+        function setSpeakingMode(speaking) {
+            if (speaking) {
+                bgEffects.classList.remove('listening');
+                bgEffects.classList.add('speaking');
+                nexusCore.classList.remove('listening');
+                nexusCore.classList.add('speaking');
+                stopBtn.classList.add('visible');
+                chatInput.disabled = true;
+                sendBtn.disabled = true;
+                updateMode('speaking');
+            } else {
+                bgEffects.classList.remove('speaking');
+                nexusCore.classList.remove('speaking');
+                stopBtn.classList.remove('visible');
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                updateMode('idle');
+            }
+        }
+        
+        function setListeningMode(listening) {
+            if (listening) {
+                bgEffects.classList.remove('speaking');
+                bgEffects.classList.add('listening');
+                nexusCore.classList.remove('speaking');
+                nexusCore.classList.add('listening');
+                updateMode('listening');
+            } else {
+                bgEffects.classList.remove('listening');
+                nexusCore.classList.remove('listening');
+            }
+        }
+        
+        function updateMode(mode) {
+            currentMode = mode;
+            bgEffects.className = 'bg-effects';
+            nexusCore.className = 'nexus-core';
+            
+            if (mode === 'listening') {
+                bgEffects.classList.add('listening');
+                nexusCore.classList.add('listening');
+                modeIndicator.textContent = 'OUVINDO';
+            } else if (mode === 'speaking') {
+                bgEffects.classList.add('speaking');
+                nexusCore.classList.add('speaking');
+                modeIndicator.textContent = 'FALANDO';
+            } else {
+                modeIndicator.textContent = 'AGUARDANDO';
+            }
+            
+            modeIndicator.className = 'mode-indicator ' + mode;
+        }
+        
+        function showVerificationOverlay(capturedImage, verified, accessDenied) {
+            const timestamp = new Date().toISOString();
+            const params = {
+                'BIOMETRIA': Math.random().toString(36).substring(7).toUpperCase(),
+                'CONFIANÇA': Math.floor(Math.random() * 30 + 70) + '%',
+                'ESTAMPAGEM': timestamp.split('T')[1].split('.')[0],
+                'NÓ': 'NEXUS-01'
+            };
+            
+            const overlay = document.createElement('div');
+            overlay.id = 'verification-overlay';
+            overlay.innerHTML = `
+                <div class="verification-header">
+                    <div class="verification-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </div>
+                    <div class="verification-title">${accessDenied ? 'ACESSO NEGADO' : 'ANALISANDO USUÁRIO'}</div>
+                </div>
+                <div class="verification-image">
+                    <img src="data:image/jpeg;base64,${capturedImage}" alt="Captura">
+                </div>
+                <div class="verification-params">
+                    <div><span>BIOMETRIA:</span> <span class="value">${params['BIOMETRIA']}</span></div>
+                    <div><span>CONFIANÇA:</span> <span class="value">${params['CONFIANÇA']}</span></div>
+                    <div><span>ESTAMPAGEM:</span> <span class="value">${params['ESTAMPAGEM']}</span></div>
+                    <div><span>NÓ:</span> <span class="value">${params['NÓ']}</span></div>
+                </div>
+                <div class="verification-status ${accessDenied ? 'denied' : (verified ? 'approved' : 'analyzing')}">
+                    ${accessDenied ? 'ACESSO REJEITADO' : (verified ? 'USUÁRIO APROVADO' : 'PROCESSANDO...')}
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            
+            setTimeout(() => {
+                overlay.classList.add('fade-out');
+                setTimeout(() => overlay.remove(), 500);
+            }, accessDenied ? 3000 : 2000);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            
+            if (!text) return;
+            
+            // Remove a verificação facial, apenas mostra que está processando
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            modeIndicator.textContent = 'PROCESSANDO...';
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Erro:', data.error);
+                    chatInput.disabled = false;
+                    sendBtn.disabled = false;
+                    modeIndicator.textContent = 'AGUARDANDO';
+                    return;
+                }
+                
+                // Só limpa o campo quando terminar de processar
+                chatInput.value = '';
+                
+            } catch (err) {
+                console.error('Erro de conexao:', err);
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                modeIndicator.textContent = 'AGUARDANDO';
+            }
+        }
+        
+        function showAccessDeniedMessage() {
+            // Removido, não é mais usado
+        }
+
+        function stopAudio() {
+            fetch('/api/stop', { method: 'POST' });
+            stopStatusCheck();
+            setSpeakingMode(false);
+        }
+
+        function toggleVoice() {
+            if (currentMode === 'listening') {
+                fetch('/api/stop_listening', { method: 'POST' });
+                setListeningMode(false);
+            } else if (currentMode === 'idle') {
+                fetch('/api/listen', { method: 'POST' });
+                setListeningMode(true);
+            }
+        }
+
+        function connectSSE() {
+            if (eventSource) eventSource.close();
+            
+            eventSource = new EventSource('/api/events');
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'speaking') {
+                        if (data.status && !isSpeaking) {
+                            isSpeaking = true;
+                            setSpeakingMode(true);
+                        } else if (!data.status && isSpeaking) {
+                            isSpeaking = false;
+                            setSpeakingMode(false);
+                        }
+                    }
+                    
+                    if (data.type === 'mode') {
+                        updateMode(data.mode);
+                        if (data.mode === 'listening') {
+                            setListeningMode(true);
+                        } else if (data.mode === 'idle' || data.mode === 'speaking') {
+                            setListeningMode(false);
+                        }
+                    }
+                    
+                    if (data.type === 'auto_listen' && data.status) {
+                        setTimeout(() => {
+                            fetch('/api/listen', { method: 'POST' });
+                            setListeningMode(true);
+                        }, 500);
+                    }
+                    
+                    if (data.type === 'wake_word' && data.detected) {
+                        updateMode('listening');
+                        setListeningMode(true);
+                    }
+                    
+                    if (data.type === 'voice_command' && data.text) {
+                        chatInput.value = data.text;
+                        setListeningMode(false);
+                        sendMessage();
+                    }
+                } catch (e) {}
+            };
+            
+            eventSource.onerror = () => {
+                setTimeout(connectSSE, 3000);
+            };
+        }
+        
+        connectSSE();
+    </script>
+</body>
+</html>
