@@ -1,0 +1,26 @@
+nohup: ignorando entrada
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.5)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+==================================================
+  RUBI ZYNAPSE - Sistema de IA
+==================================================
+
+  Abra no navegador: http://127.0.0.1:5000
+
+==================================================
+
+[VOICE] Voice loop desabilitado - PyAudio nao instalado
+[VOICE] Use o botao de microfone no navegador para voz
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [13/Apr/2026 00:40:44] "GET /api/events HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:40:45] "GET /api/events HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:40:57] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:41:14] "POST /api/chat_with_verify HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:41:22] "[36mGET / HTTP/1.1[0m" 304 -
+127.0.0.1 - - [13/Apr/2026 00:41:27] "POST /api/chat_with_verify HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:41:27] "GET /api/events HTTP/1.1" 200 -
+127.0.0.1 - - [13/Apr/2026 00:41:52] "GET /api/events HTTP/1.1" 200 -
